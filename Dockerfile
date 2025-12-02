@@ -1,10 +1,14 @@
 ## Parent image
 FROM python:3.10-slim
 
+## Build arguments for secrets
+ARG HF_TOKEN
+
 ## Essential environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    HF_TOKEN=${HF_TOKEN}
 
 ## Work directory inside the docker container
 WORKDIR /app
@@ -18,14 +22,20 @@ RUN apt-get update && apt-get install -y \
 ## Copying all contents from local to container
 COPY . .
 
+## Make entrypoint script executable
+RUN chmod +x entrypoint.sh
+
 ## Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+## Create vector store from PDFs during build
+RUN python app/components/data_loader.py
+
 ## Expose only flask port
 EXPOSE 5000
 
-## Run the Flask app
-CMD ["python", "app/application.py"]
+## Use entrypoint script
+ENTRYPOINT ["./entrypoint.sh"]
 
 

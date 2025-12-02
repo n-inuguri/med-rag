@@ -20,7 +20,10 @@ pipeline {
 
         stage('Build, Scan, and Push Docker Image to ECR') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-token']]) {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-token'],
+                    string(credentialsId: 'hf-token', variable: 'HF_TOKEN')
+                ]) {
                     script {
                         def accountId = sh(script: "aws sts get-caller-identity --query Account --output text", returnStdout: true).trim()
                         def ecrUrl = "${accountId}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${env.ECR_REPO}"
@@ -28,7 +31,7 @@ pipeline {
 
                         sh """
                         aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ecrUrl}
-                        docker build -t ${env.ECR_REPO}:${IMAGE_TAG} .
+                        docker build --build-arg HF_TOKEN=${HF_TOKEN} -t ${env.ECR_REPO}:${IMAGE_TAG} .
                         trivy image --severity HIGH,CRITICAL --format json -o trivy-report.json ${env.ECR_REPO}:${IMAGE_TAG} || true
                         docker tag ${env.ECR_REPO}:${IMAGE_TAG} ${imageFullTag}
                         docker push ${imageFullTag}
