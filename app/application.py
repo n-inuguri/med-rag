@@ -1,5 +1,7 @@
 from flask import Flask,render_template,request,session,redirect,url_for
 from app.components.retriever import create_qa_chain
+from app.components.data_loader import process_and_store_pdfs
+from app.components.vector_store import load_vector_store
 from dotenv import load_dotenv
 import os
 
@@ -16,6 +18,16 @@ def nl2br(value):
     return Markup(value.replace("\n" , "<br>\n"))
 
 app.jinja_env.filters['nl2br'] = nl2br
+
+# Initialize vector store on first request
+@app.before_request
+def initialize_vector_store():
+    if not hasattr(app, 'vector_store_initialized'):
+        db = load_vector_store()
+        if db is None:
+            # Vector store doesn't exist, create it
+            process_and_store_pdfs()
+        app.vector_store_initialized = True
 
 @app.route("/" , methods=["GET","POST"])
 def index():
